@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdint>
 #include <iostream>
+#include <iterator>
 #include <mutex>
 #include <utility>
 #include <vector>
@@ -41,8 +42,8 @@ class DBSCAN
         std::int32_t cluster_id = 0;
 
         tbb::parallel_for(tbb::blocked_range<std::int32_t>(0, points_.rows()),
-                          [&](const tbb::blocked_range<std::int32_t> &r) {
-                              for (std::int32_t i = r.begin(); i != r.end(); ++i)
+                          [&](const tbb::blocked_range<std::int32_t> &index_range) {
+                              for (std::int32_t i = index_range.begin(); i != index_range.end(); ++i)
                               {
                                   if (cluster_labels_[i] != -1)
                                   {
@@ -103,23 +104,43 @@ class DBSCAN
         }
     }
 
-    std::vector<std::pair<Eigen::Index, double>> regionQuery(int point_idx)
+    std::vector<std::pair<Eigen::Index, double>> regionQuery(std::int32_t point_idx)
     {
         std::vector<std::pair<Eigen::Index, double>> neighbors;
+        neighbors.reserve(50);
+
         double query_pt[3] = {points_(point_idx, 0), points_(point_idx, 1), points_(point_idx, 2)};
 
         nanoflann::SearchParams params;
+        params.eps = 100;     // limit to 100 points
+        params.sorted = true; // return sorted results - this will ensure that the first element index = point_idx
+
         const double search_radius = std::pow(eps_, 2);
         const std::size_t num_results = kdtree_.index->radiusSearch(query_pt, search_radius, neighbors, params);
 
         // printf("Num results: %d\n", static_cast<int>(num_results));
 
-        neighbors.erase(std::remove_if(neighbors.begin(), neighbors.end(),
-                                       [&point_idx](std::pair<Eigen::Index, double> neighbor) {
-                                           return (static_cast<std::int32_t>(neighbor.first) == point_idx);
-                                       }),
-                        neighbors.end());
-        return neighbors;
+        // printf("%d\n", (neighbors[0].first == point_idx));
+
+        // neighbors.erase(std::remove_if(neighbors.begin(), neighbors.end(),
+        //                                [&point_idx](const std::pair<Eigen::Index, double> &neighbor) {
+        //                                    return (static_cast<std::int32_t>(neighbor.first) == point_idx);
+        //                                }),
+        //                 neighbors.end());
+
+        if (!neighbors.size() > 1)
+        {
+            std::vector<std::pair<Eigen::Index, double>> neighbors_without_first_index;
+            neighbors_without_first_index.reserve(neighbors.size() - 1);
+            std::copy(std::make_move_iterator(neighbors.begin() + 1), std::make_move_iterator(neighbors.end()),
+                      std::back_inserter(neighbors_without_first_index));
+            neighbors.clear();
+            return neighbors_without_first_index;
+        }
+        else
+        {
+            return {};
+        }
     }
 
     double eps_;
