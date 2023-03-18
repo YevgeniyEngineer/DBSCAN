@@ -1,2 +1,2 @@
 # DB-Scan
-Implementation of the DB-Scan algorithm
+C++ implementation of the DB-Scan algorithm
