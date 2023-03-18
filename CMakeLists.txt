@@ -23,3 +23,12 @@ target_link_libraries(${PROJECT_NAME}
     Eigen3::Eigen
     nanoflann::nanoflann
 )
+
+
+add_executable(sequential src/sequential.cpp)
+target_link_libraries(sequential
+    PUBLIC
+        TBB::tbb
+        Eigen3::Eigen
+        nanoflann::nanoflann
+)

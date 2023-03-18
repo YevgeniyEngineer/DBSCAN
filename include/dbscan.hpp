@@ -149,7 +149,7 @@ class DBSCAN
     std::int32_t number_of_clusters_;
     const PointCloud &points_;
     std::vector<std::int32_t> cluster_labels_;
-    nanoflann::KDTreeEigenMatrixAdaptor<PointCloud, 3 /* number of dimensions */, nanoflann::metric_L2,
+    nanoflann::KDTreeEigenMatrixAdaptor<PointCloud, 3 /* number of dimensions */, nanoflann::metric_L2_Simple,
                                         true /* row major layout */>
         kdtree_;
 
