@@ -53,15 +53,20 @@ class DBSCAN
                                   if (neighbors.size() < min_pts_)
                                   {
                                       std::unique_lock<std::mutex> lock(mutex_);
+                                      //   std::cout << "Here" << std::endl;
                                       cluster_labels_[i] = 0; // Noise
                                   }
                                   else
                                   {
                                       std::unique_lock<std::mutex> lock(mutex_);
+                                      //   printf("%d\n", cluster_id);
+                                      //   std::cout << "Here" << std::endl;
                                       expandCluster(i, neighbors, ++cluster_id);
                                   }
                               }
                           });
+
+        number_of_clusters_ = cluster_id + 1;
     }
 
     double eps() const
@@ -72,6 +77,11 @@ class DBSCAN
     std::int32_t min_pts() const
     {
         return min_pts_;
+    }
+
+    std::int32_t number_of_clusters() const
+    {
+        return number_of_clusters_;
     }
 
     std::vector<std::int32_t> cluster_labels() const
@@ -88,18 +98,19 @@ class DBSCAN
         for (std::size_t i = 0; i < neighbors.size(); ++i)
         {
             std::int32_t n = static_cast<std::int32_t>(neighbors[i].first);
-            if (cluster_labels_[n] == -1)
+            auto &cluster_label = cluster_labels_[n];
+            if (cluster_label == -1)
             {
-                cluster_labels_[n] = cluster_id;
+                cluster_label = cluster_id;
                 std::vector<std::pair<Eigen::Index, double>> n_neighbors = regionQuery(n);
                 if (n_neighbors.size() >= min_pts_)
                 {
                     neighbors.insert(neighbors.end(), n_neighbors.begin(), n_neighbors.end());
                 }
             }
-            else if (cluster_labels_[n] == 0)
+            else if (cluster_label == 0)
             {
-                cluster_labels_[n] = cluster_id;
+                cluster_label = cluster_id;
             }
         }
     }
@@ -112,23 +123,17 @@ class DBSCAN
         double query_pt[3] = {points_(point_idx, 0), points_(point_idx, 1), points_(point_idx, 2)};
 
         nanoflann::SearchParams params;
-        params.eps = 100;     // limit to 100 points
+        params.eps = 2;
         params.sorted = true; // return sorted results - this will ensure that the first element index = point_idx
 
-        const double search_radius = std::pow(eps_, 2);
-        const std::size_t num_results = kdtree_.index->radiusSearch(query_pt, search_radius, neighbors, params);
+        const double squared_search_radius = std::pow(eps_, 2);
+        const std::size_t num_results = kdtree_.index->radiusSearch(query_pt, squared_search_radius, neighbors, params);
 
-        // printf("Num results: %d\n", static_cast<int>(num_results));
-
-        // printf("%d\n", (neighbors[0].first == point_idx));
-
-        // neighbors.erase(std::remove_if(neighbors.begin(), neighbors.end(),
-        //                                [&point_idx](const std::pair<Eigen::Index, double> &neighbor) {
-        //                                    return (static_cast<std::int32_t>(neighbor.first) == point_idx);
-        //                                }),
-        //                 neighbors.end());
-
-        if (!neighbors.size() > 1)
+        if (neighbors.size() <= 1)
+        {
+            return {};
+        }
+        else
         {
             std::vector<std::pair<Eigen::Index, double>> neighbors_without_first_index;
             neighbors_without_first_index.reserve(neighbors.size() - 1);
@@ -137,14 +142,11 @@ class DBSCAN
             neighbors.clear();
             return neighbors_without_first_index;
         }
-        else
-        {
-            return {};
-        }
     }
 
     double eps_;
     std::int32_t min_pts_;
+    std::int32_t number_of_clusters_;
     const PointCloud &points_;
     std::vector<std::int32_t> cluster_labels_;
     nanoflann::KDTreeEigenMatrixAdaptor<PointCloud, 3 /* number of dimensions */, nanoflann::metric_L2,

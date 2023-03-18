@@ -7,7 +7,7 @@ int main()
 {
     using namespace clustering;
 
-    std::int32_t number_of_points = 100000;
+    std::int32_t number_of_points = 50000;
     std::int32_t number_of_dimensions = 3;
 
     std::random_device rd;
@@ -24,8 +24,8 @@ int main()
         points.row(i) = point;
     }
 
-    double eps = 0.5;
-    std::int32_t min_pts = 4;
+    double eps = 1.0;
+    std::int32_t min_pts = 2;
 
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -34,6 +34,7 @@ int main()
 
     auto stop_time = std::chrono::high_resolution_clock::now();
     std::cout << "Elapsed time: " << (stop_time - start_time).count() / 1e9 << " seconds" << std::endl;
+    std::cout << "Number of cluster: " << dbscan.number_of_clusters() << std::endl;
 
     // for (const int label : dbscan.cluster_labels())
     // {
