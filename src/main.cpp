@@ -7,8 +7,8 @@ int main()
 {
     using namespace clustering;
 
-    int number_of_points = 100'000;
-    int number_of_dimensions = 3;
+    std::int32_t number_of_points = 50000;
+    std::int32_t number_of_dimensions = 3;
 
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -24,8 +24,8 @@ int main()
         points.row(i) = point;
     }
 
-    double eps = 0.1;
-    int min_pts = 2;
+    double eps = 0.5;
+    std::int32_t min_pts = 4;
 
     auto start_time = std::chrono::high_resolution_clock::now();
 

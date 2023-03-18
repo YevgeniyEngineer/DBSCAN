@@ -6,6 +6,7 @@ project(dbscan)
 
 find_package(TBB REQUIRED)
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+find_package(nanoflann REQUIRED)
 
 add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 
@@ -20,4 +21,5 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
     TBB::tbb
     Eigen3::Eigen
+    nanoflann::nanoflann
 )
