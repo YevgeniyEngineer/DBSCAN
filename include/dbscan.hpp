@@ -79,13 +79,14 @@ class DBSCAN
     }
 
   private:
-    void expandCluster(int point_idx, std::vector<std::pair<Eigen::Index, double>> &neighbors, std::int32_t cluster_id)
+    void expandCluster(std::int32_t point_idx, std::vector<std::pair<Eigen::Index, double>> &neighbors,
+                       std::int32_t cluster_id)
     {
         cluster_labels_[point_idx] = cluster_id;
 
         for (std::size_t i = 0; i < neighbors.size(); ++i)
         {
-            int n = static_cast<int>(neighbors[i].first);
+            std::int32_t n = static_cast<std::int32_t>(neighbors[i].first);
             if (cluster_labels_[n] == -1)
             {
                 cluster_labels_[n] = cluster_id;
@@ -123,12 +124,13 @@ class DBSCAN
 
     double eps_;
     std::int32_t min_pts_;
-    PointCloud points_;
+    const PointCloud &points_;
     std::vector<std::int32_t> cluster_labels_;
-    std::mutex mutex_;
     nanoflann::KDTreeEigenMatrixAdaptor<PointCloud, 3 /* number of dimensions */, nanoflann::metric_L2,
                                         true /* row major layout */>
         kdtree_;
+
+    std::mutex mutex_;
 };
 
 } // namespace clustering
