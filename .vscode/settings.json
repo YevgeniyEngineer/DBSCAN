@@ -82,6 +82,7 @@
         "valarray": "cpp",
         "variant": "cpp",
         "*.ipp": "cpp",
-        "execution": "cpp"
+        "execution": "cpp",
+        "dense": "cpp"
     }
 }

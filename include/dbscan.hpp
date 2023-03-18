@@ -7,16 +7,11 @@
 #include <mutex>
 #include <tbb/blocked_range.h>
 #include <tbb/parallel_for.h>
-#include <tbb/queuing_mutex.h>
 #include <vector>
 
 namespace clustering
 {
-using namespace std;
-using namespace Eigen;
-using namespace tbb;
-
-typedef Eigen::Matrix<double, Eigen::Dynamic, 3> PointCloud;
+using PointCloud = Eigen::Matrix<double, Eigen::Dynamic, 3>;
 
 class DBSCAN
 {
