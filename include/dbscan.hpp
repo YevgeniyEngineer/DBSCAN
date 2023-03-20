@@ -1,20 +1,13 @@
 #ifndef DBSCAN_HPP
 #define DBSCAN_HPP
 
-#include <Eigen/Dense> // Eigen::Matrix
-#include <algorithm>
-#include <atomic>
-#include <chrono>
-#include <cmath>
-#include <cstdint>
-#include <execution>
-#include <iostream>
-#include <iterator>
-#include <nanoflann.hpp>
-#include <queue>
-#include <unordered_map>
-#include <utility>
-#include <vector> // std::vector
+#include <Eigen/Dense>   // Eigen::Matrix, Eigen::Index
+#include <cstdint>       // std::int32_t, std::size_t
+#include <iostream>      // std::cout
+#include <nanoflann.hpp> // nanoflann::KDTreeEigenMatrixAdaptor
+#include <unordered_map> // std::unordered_map
+#include <utility>       // std::pair
+#include <vector>        // std::vector
 
 namespace clustering
 {
@@ -34,9 +27,10 @@ class DBSCAN final
           min_neighbour_points_(min_neighbour_points), points_(points), kdtree_(3, points_, 10)
     {
     }
+
     ~DBSCAN() = default;
 
-    const auto getClusterIndicies() const
+    const auto getClusterIndices() const
     {
         return cluster_indices_;
     }
