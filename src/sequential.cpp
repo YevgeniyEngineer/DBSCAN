@@ -1,16 +1,27 @@
-#include <Eigen/Dense>
+// STL
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <iostream>
 #include <limits>
-#include <nanoflann.hpp>
+#include <mutex>
 #include <random>
 #include <utility>
 #include <vector>
 
-#define THREADED 0
+// Nanoflann
+#include <nanoflann.hpp>
+
+// Eigen
+#include <Eigen/Dense>
+
+// TBB
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_for.h>
+
+#define THREADED 1
 
 typedef Eigen::Matrix<double, Eigen::Dynamic, 3> PointCloud;
 
@@ -48,6 +59,8 @@ struct PointCloudAdapter
 
 class DBSCAN
 {
+    std::recursive_mutex mutex;
+
   public:
     constexpr static std::int32_t MAX_NEIGH_TO_SEARCH = 200;
     PointCloud points;
@@ -56,17 +69,17 @@ class DBSCAN
     std::int32_t min_pts;
     std::int32_t neigh_to_search;
     std::int32_t number_of_clusters = 0;
-    std::vector<std::int32_t> cluster_labels;
+    std::vector<std::atomic<std::int32_t>> cluster_labels;
     PointCloudAdapter point_cloud_adapter;
     nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<double, PointCloudAdapter>, PointCloudAdapter, 3>
         kdtree;
 
     DBSCAN(double eps, std::int32_t min_pts, const PointCloud &points)
-        : points(points), eps(eps), min_pts(min_pts), cluster_labels(points.rows(), 0), point_cloud_adapter(points),
+        : points(points), eps(eps), min_pts(min_pts), cluster_labels(points.rows()), point_cloud_adapter(points),
           kdtree(3, point_cloud_adapter, nanoflann::KDTreeSingleIndexAdaptorParams(10 /* max leaf */))
     {
         kdtree.buildIndex();
-        neigh_to_search = min_pts + 10;
+        neigh_to_search = min_pts + 2;
         if (neigh_to_search > MAX_NEIGH_TO_SEARCH)
         {
             neigh_to_search = MAX_NEIGH_TO_SEARCH;
@@ -78,6 +91,29 @@ class DBSCAN
     {
         std::int32_t cluster_id = 0;
 
+#if THREADED
+        tbb::parallel_for(tbb::blocked_range<std::int32_t>(0, points.rows()),
+                          [&](const tbb::blocked_range<std::int32_t> &index_range) {
+                              for (std::int32_t i = index_range.begin(); i != index_range.end(); ++i)
+                              {
+                                  //   std::unique_lock<std::recursive_mutex> lock(mutex);
+                                  if (cluster_labels[i] == 0)
+                                  {
+                                      std::vector<std::int32_t> neighbors = regionQuery(i);
+                                      if (neighbors.size() < min_pts)
+                                      {
+                                          //   std::unique_lock<std::mutex> lock(mutex);
+                                          cluster_labels[i] = -1; // Noise
+                                      }
+                                      else
+                                      {
+                                          std::unique_lock<std::recursive_mutex> lock(mutex);
+                                          expandCluster(i, neighbors, ++cluster_id);
+                                      }
+                                  }
+                              }
+                          });
+#else
         for (std::int32_t i = 0; i < points.rows(); ++i)
         {
             if (cluster_labels[i] == 0)
@@ -93,6 +129,7 @@ class DBSCAN
                 }
             }
         }
+#endif
 
         number_of_clusters = cluster_id + 1;
     }
@@ -155,7 +192,7 @@ class DBSCAN
 
 int main()
 {
-    double eps = 1.0;
+    double eps = 0.2;
     std::int32_t min_pts = 3;
 
     {
@@ -220,7 +257,7 @@ int main()
                 auto row_j = dbscan.points.row(j);
                 dbscan.points.row(i) = row_j;
                 dbscan.points.row(j) = row_i;
-                std::swap(dbscan.cluster_labels[i], dbscan.cluster_labels[j]);
+                // std::swap(dbscan.cluster_labels[i], dbscan.cluster_labels[j]);
                 std::swap(indices[i], indices[std::find(indices.begin() + i, indices.end(), i) - indices.begin()]);
             }
         }
