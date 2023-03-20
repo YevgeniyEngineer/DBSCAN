@@ -1,7 +1,7 @@
 #ifndef DBSCAN_HPP
 #define DBSCAN_HPP
 
-#include <Eigen/Dense>
+#include <Eigen/Dense> // Eigen::Matrix
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -14,20 +14,27 @@
 #include <queue>
 #include <unordered_map>
 #include <utility>
-#include <vector>
+#include <vector> // std::vector
 
 namespace clustering
 {
 using PointCloud = Eigen::Matrix<double, Eigen::Dynamic, 3>;
 
-class DBSCAN
+class DBSCAN final
 {
   public:
-    explicit DBSCAN(double distance_threshold, std::int32_t min_neighbour_points, const PointCloud &points)
-        : distance_threshold_(distance_threshold), distance_threshold_squared_(distance_threshold * distance_threshold),
+    DBSCAN(const DBSCAN &) = delete;
+    DBSCAN &operator=(const DBSCAN &) = delete;
+    DBSCAN(DBSCAN &&) = delete;
+    DBSCAN &operator=(DBSCAN &&) = delete;
+    DBSCAN() = delete;
+
+    explicit DBSCAN(const double distance_threshold, const std::int32_t min_neighbour_points, const PointCloud &points)
+        : distance_threshold_squared_(distance_threshold * distance_threshold),
           min_neighbour_points_(min_neighbour_points), points_(points), kdtree_(3, points_, 10)
     {
     }
+    ~DBSCAN() = default;
 
     const auto getClusterIndicies() const
     {
@@ -36,6 +43,12 @@ class DBSCAN
 
     void formClusters()
     {
+        // Must not have less that 2 points
+        if (points_.rows() < 2)
+        {
+            return;
+        }
+
         // Set all initial labels to -2
         std::vector<std::int32_t> labels(points_.rows(), -2);
         auto labels_it = labels.begin();
@@ -45,11 +58,11 @@ class DBSCAN
         auto labelled_it = labelled.begin();
 
         // Reserve memory for neighbors
-        std::vector<std::pair<Eigen::Index, double>> neighbors;
-        neighbors.reserve(10000);
+        static std::vector<std::pair<Eigen::Index, double>> neighbors;
+        neighbors.reserve(1000);
 
-        std::vector<std::pair<Eigen::Index, double>> inner_neighbors;
-        inner_neighbors.reserve(10000);
+        static std::vector<std::pair<Eigen::Index, double>> inner_neighbors;
+        inner_neighbors.reserve(1000);
 
         nanoflann::SearchParams search_parameters(32, 0.0, true);
 
@@ -77,7 +90,7 @@ class DBSCAN
 
             // Find nearest neighbors within radius
             neighbors.clear();
-            std::size_t number_of_neighbors =
+            const std::size_t number_of_neighbors =
                 kdtree_.index->radiusSearch(query_point, distance_threshold_squared_, neighbors, search_parameters);
 
             // Check density
@@ -129,7 +142,7 @@ class DBSCAN
 
                 // Find neighbors
                 inner_neighbors.clear();
-                std::size_t number_of_inner_neighbors = kdtree_.index->radiusSearch(
+                const std::size_t number_of_inner_neighbors = kdtree_.index->radiusSearch(
                     inner_query_point, distance_threshold_squared_, inner_neighbors, search_parameters);
 
                 // Density check, if inner_query_point is a core point
@@ -157,9 +170,8 @@ class DBSCAN
     }
 
   private:
-    double distance_threshold_;
-    double distance_threshold_squared_;
-    std::int32_t min_neighbour_points_;
+    const double distance_threshold_squared_;
+    const std::int32_t min_neighbour_points_;
     const PointCloud &points_;
     nanoflann::KDTreeEigenMatrixAdaptor<PointCloud, 3, nanoflann::metric_L2, true> kdtree_;
     std::unordered_map<std::int32_t, std::vector<std::int32_t>> cluster_indices_;

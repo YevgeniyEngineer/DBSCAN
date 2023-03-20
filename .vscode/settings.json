@@ -83,6 +83,7 @@
         "variant": "cpp",
         "*.ipp": "cpp",
         "execution": "cpp",
-        "dense": "cpp"
+        "dense": "cpp",
+        "core": "cpp"
     }
 }
