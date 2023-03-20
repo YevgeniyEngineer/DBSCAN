@@ -98,7 +98,7 @@ class DBSCAN
             (*current_labelled_it) = true;
 
             // Exclude the first point from the radius search, and iterate over all neighbors
-            for (auto neighbor_it = neighbors.begin(); neighbor_it != neighbors.end(); ++neighbor_it)
+            for (auto neighbor_it = neighbors.cbegin(); neighbor_it != neighbors.cend(); ++neighbor_it)
             {
                 // Change noise to border point
                 const auto &neighbor_index = (*neighbor_it).first;
@@ -113,7 +113,7 @@ class DBSCAN
                 }
 
                 // Previously processed, border point
-                if ((*current_neighbor_labelled_it))
+                if (*current_neighbor_labelled_it)
                 {
                     continue;
                 }
@@ -136,8 +136,8 @@ class DBSCAN
                 if (number_of_inner_neighbors >= min_neighbour_points_)
                 {
                     // Add new neighbors to the seed set
-                    for (auto inner_neighbor_it = inner_neighbors.begin() + 1;
-                         inner_neighbor_it != inner_neighbors.end(); ++inner_neighbor_it)
+                    for (auto inner_neighbor_it = inner_neighbors.cbegin() + 1;
+                         inner_neighbor_it != inner_neighbors.cend(); ++inner_neighbor_it)
                     {
                         const auto &inner_neighbour_index = (*inner_neighbor_it).first;
                         *(labels_it + inner_neighbour_index) = label;
