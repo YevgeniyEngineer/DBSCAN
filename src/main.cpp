@@ -7,7 +7,7 @@ int main()
 {
     using namespace clustering;
 
-    std::int32_t number_of_points = 1000000; // 50000;
+    std::int32_t number_of_points = 100000; // 50000;
     std::int32_t number_of_dimensions = 3;
 
     std::random_device rd;

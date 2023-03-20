@@ -25,7 +25,7 @@ class DBSCAN
   public:
     explicit DBSCAN(double distance_threshold, std::int32_t min_neighbour_points, const PointCloud &points)
         : distance_threshold_(distance_threshold), distance_threshold_squared_(distance_threshold * distance_threshold),
-          min_neighbour_points_(min_neighbour_points), points_(points), kdtree_(3, std::cref(points_), 10)
+          min_neighbour_points_(min_neighbour_points), points_(points), kdtree_(3, points_, 10)
     {
     }
 
@@ -38,9 +38,11 @@ class DBSCAN
     {
         // Set all initial labels to -2
         std::vector<std::int32_t> labels(points_.rows(), -2);
+        auto labels_it = labels.begin();
 
         // Vector that holds status flags specifying if points were removed from queue
-        // std::vector<bool> removed(points_.rows(), false);
+        std::vector<bool> labelled(points_.rows(), false);
+        auto labelled_it = labelled.begin();
 
         // Reserve memory for neighbors
         std::vector<std::pair<Eigen::Index, double>> neighbors;
@@ -62,7 +64,8 @@ class DBSCAN
         {
 
             // Check if label is not undefined
-            if (labels[index] != -2)
+            auto current_labelled_it = labelled_it + index;
+            if (*current_labelled_it)
             {
                 continue;
             }
@@ -78,10 +81,12 @@ class DBSCAN
                 kdtree_.index->radiusSearch(query_point, distance_threshold_squared_, neighbors, search_parameters);
 
             // Check density
+            auto current_labels_it = labels_it + index;
             if (number_of_neighbors < min_neighbour_points_)
             {
                 // Label query point as noise
-                labels[index] = -1;
+                (*current_labels_it) = -1;
+                (*current_labelled_it) = true;
                 continue;
             }
 
@@ -89,26 +94,33 @@ class DBSCAN
             ++label;
 
             // Label initial point
-            labels[index] = label;
+            (*current_labels_it) = label;
+            (*current_labelled_it) = true;
 
             // Exclude the first point from the radius search, and iterate over all neighbors
-            for (const auto [neighbor_index, _] : neighbors)
+            for (auto neighbor_it = neighbors.begin(); neighbor_it != neighbors.end(); ++neighbor_it)
             {
                 // Change noise to border point
-                auto &neighbor_label = labels[neighbor_index];
-                if (neighbor_label == -1)
+                const auto &neighbor_index = (*neighbor_it).first;
+                auto current_neighbor_labels_it = labels_it + neighbor_index;
+                auto current_neighbor_labelled_it = labelled_it + neighbor_index;
+
+                if ((*current_neighbor_labels_it) < 0)
                 {
-                    neighbor_label = label;
+                    (*current_neighbor_labels_it) = label;
+                    (*current_neighbor_labelled_it) = true;
+                    continue;
                 }
 
                 // Previously processed, border point
-                if (neighbor_label != -2)
+                if ((*current_neighbor_labelled_it))
                 {
                     continue;
                 }
 
                 // Label neighbor
-                neighbor_label = label;
+                (*current_neighbor_labels_it) = label;
+                (*current_neighbor_labelled_it) = true;
 
                 // Get the query point for current index
                 inner_query_point[0] = points_(neighbor_index, 0);
@@ -124,9 +136,12 @@ class DBSCAN
                 if (number_of_inner_neighbors >= min_neighbour_points_)
                 {
                     // Add new neighbors to the seed set
-                    for (const auto [inner_neighbor_index, _] : inner_neighbors)
+                    for (auto inner_neighbor_it = inner_neighbors.begin() + 1;
+                         inner_neighbor_it != inner_neighbors.end(); ++inner_neighbor_it)
                     {
-                        labels[inner_neighbor_index] = label;
+                        const auto &inner_neighbour_index = (*inner_neighbor_it).first;
+                        *(labels_it + inner_neighbour_index) = label;
+                        *(labelled_it + inner_neighbour_index) = true;
                     }
                 }
             }
