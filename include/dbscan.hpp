@@ -150,7 +150,7 @@ template <typename CoordinateType> class DBSCAN final
   private:
     const CoordinateType distance_threshold_squared_;
     const std::int32_t min_neighbour_points_;
-    const PointCloud<CoordinateType> &points_;
+    const PointCloud<CoordinateType> points_;
     const nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Adaptor<CoordinateType, PointCloud<CoordinateType>>,
                                               PointCloud<CoordinateType>, NUMBER_OF_DIMENSIONS /* dim */>
         kdtree_index_;
