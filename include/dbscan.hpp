@@ -52,27 +52,27 @@ template <typename CoordinateType> class DBSCAN final
     void formClusters()
     {
         // Must not have less that 2 points
-        if (points_.pts.size() < 2)
+        if (points_.points.size() < 2)
         {
             return;
         }
 
         // Set all initial labels to UNDEFINED
-        std::vector<std::int32_t> labels(points_.pts.size(), labels::UNDEFINED);
+        std::vector<std::int32_t> labels(points_.points.size(), labels::UNDEFINED);
         auto labels_it = labels.begin();
 
         // Reserve memory for neighbors
-        static std::vector<std::pair<std::uint32_t, CoordinateType>> neighbors;
+        std::vector<std::pair<std::uint32_t, CoordinateType>> neighbors;
         neighbors.reserve(1000);
 
-        static std::vector<std::pair<std::uint32_t, CoordinateType>> inner_neighbors;
+        std::vector<std::pair<std::uint32_t, CoordinateType>> inner_neighbors;
         inner_neighbors.reserve(1000);
 
         // Initial cluster counter
         std::int32_t label = 0;
 
         // Iterate over each point
-        for (std::int32_t index = 0; index < points_.pts.size(); ++index)
+        for (std::int32_t index = 0; index < points_.points.size(); ++index)
         {
             // Check if label is not undefined
             auto current_labels_it = labels_it + index;
@@ -83,11 +83,10 @@ template <typename CoordinateType> class DBSCAN final
 
             // Find nearest neighbors within radius
             neighbors.clear();
-            const std::size_t number_of_neighbors = kdtree_index_.radiusSearch(
-                points_.pts[index].point, distance_threshold_squared_, neighbors, search_parameters_);
 
             // Check density
-            if (number_of_neighbors < min_neighbour_points_)
+            if (kdtree_index_.radiusSearch(points_.points[index].point, distance_threshold_squared_, neighbors,
+                                           search_parameters_) < min_neighbour_points_)
             {
                 // Label query point as noise
                 *current_labels_it = labels::NOISE;
@@ -124,19 +123,16 @@ template <typename CoordinateType> class DBSCAN final
 
                 // Find neighbors
                 inner_neighbors.clear();
-                const std::size_t number_of_inner_neighbors =
-                    kdtree_index_.radiusSearch(points_.pts[neighbor_index].point, distance_threshold_squared_,
-                                               inner_neighbors, search_parameters_);
 
                 // Density check, if inner_query_point is a core point
-                if (number_of_inner_neighbors >= min_neighbour_points_)
+                if (kdtree_index_.radiusSearch(points_.points[neighbor_index].point, distance_threshold_squared_,
+                                               inner_neighbors, search_parameters_) >= min_neighbour_points_)
                 {
                     // Add new neighbors to the seed set
                     for (auto inner_neighbor_it = inner_neighbors.cbegin() + 1;
                          inner_neighbor_it != inner_neighbors.cend(); ++inner_neighbor_it)
                     {
-                        const auto &inner_neighbour_index = (*inner_neighbor_it).first;
-                        *(labels_it + inner_neighbour_index) = label;
+                        *(labels_it + (*inner_neighbor_it).first) = label;
                     }
                 }
             }

@@ -1,8 +1,9 @@
 #ifndef POINT_STRUCT_HPP
 #define POINT_STRUCT_HPP
 
-#include <cstdint> // std::size_t
-#include <vector>  // std::vector
+#include <cstdint>   // std::size_t
+#include <stdexcept> // std::runtime_error
+#include <vector>    // std::vector
 
 namespace clustering
 {
@@ -12,21 +13,20 @@ template <typename CoordinateType> struct PointCloud
     /// @brief Definition of the point struct
     struct Point
     {
-        explicit Point(CoordinateType x, CoordinateType y, CoordinateType z) : x(x), y(y), z(z), point{x, y, z}
+        Point() = delete;
+        explicit Point(CoordinateType x, CoordinateType y, CoordinateType z) : point{x, y, z}
         {
         }
-
-        CoordinateType x, y, z;
         CoordinateType point[3];
     };
 
     // Container for points
-    std::vector<Point> pts;
+    std::vector<Point> points;
 
     /// @brief Return the number of points in the cloud
     inline std::size_t kdtree_get_point_count() const noexcept
     {
-        return pts.size();
+        return points.size();
     }
 
     /// @brief Get a point along the specified dimension
@@ -34,20 +34,23 @@ template <typename CoordinateType> struct PointCloud
     {
         switch (dim)
         {
-        case (0): {
-            return pts[idx].x;
+        case (0UL): {
+            return points[idx].point[0];
         }
-        case (1): {
-            return pts[idx].y;
+        case (1UL): {
+            return points[idx].point[1];
+        }
+        case (2UL): {
+            return points[idx].point[2];
         }
         default: {
-            return pts[idx].z;
+            throw std::runtime_error("Attempting to access the wrong dimension!");
         }
         }
     }
 
     /// @brief Optional bounding box computation
-    template <class Bbox> inline bool kdtree_get_bbox(Bbox & /* bb */) const noexcept
+    template <class Bbox> inline bool kdtree_get_bbox(Bbox & /* bb */) const
     {
         return false;
     }
