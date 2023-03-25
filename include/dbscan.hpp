@@ -62,10 +62,10 @@ template <typename CoordinateType> class DBSCAN final
         auto labels_it = labels.begin();
 
         // Reserve memory for neighbors
-        static std::vector<std::pair<std::uint32_t, double>> neighbors;
+        static std::vector<std::pair<std::uint32_t, CoordinateType>> neighbors;
         neighbors.reserve(1000);
 
-        static std::vector<std::pair<std::uint32_t, double>> inner_neighbors;
+        static std::vector<std::pair<std::uint32_t, CoordinateType>> inner_neighbors;
         inner_neighbors.reserve(1000);
 
         // Initial cluster counter
