@@ -1,13 +1,13 @@
 #ifndef DBSCAN_HPP
 #define DBSCAN_HPP
 
-#include "point_struct.hpp" // PointCloud
-#include <cstdint>          // std::int32_t, std::size_t
-#include <iostream>         // std::cout
-#include <nanoflann.hpp>    // nanoflann::KDTreeEigenMatrixAdaptor
-#include <unordered_map>    // std::unordered_map
-#include <utility>          // std::pair
-#include <vector>           // std::vector
+#include "nanoflann/nanoflann.hpp" // nanoflann::KDTreeEigenMatrixAdaptor
+#include "point_struct.hpp"        // PointCloud
+#include <cstdint>                 // std::int32_t, std::size_t
+#include <iostream>                // std::cout
+#include <unordered_map>           // std::unordered_map
+#include <utility>                 // std::pair
+#include <vector>                  // std::vector
 
 namespace clustering
 {
