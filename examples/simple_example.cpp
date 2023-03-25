@@ -12,7 +12,7 @@ using PointCloudType = PointCloud<double>;
 namespace configuration_parameters
 {
 constexpr static int NUMBER_OF_POINTS = 100'000;
-constexpr static int NUMBER_OF_ITERATIONS = 10000;
+constexpr static int NUMBER_OF_ITERATIONS = 100;
 } // namespace configuration_parameters
 
 namespace dbscan_parameters

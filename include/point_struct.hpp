@@ -11,6 +11,12 @@ namespace clustering
 template <typename CoordinateType> struct Point final
 {
     Point() = delete;
+    Point(const Point &) = delete;
+    Point(Point &&) noexcept = default;
+    Point &operator=(const Point &) = delete;
+    Point &operator=(Point &&) noexcept = default;
+    ~Point() = default;
+
     explicit Point(CoordinateType x, CoordinateType y, CoordinateType z) : point{x, y, z}
     {
     }
