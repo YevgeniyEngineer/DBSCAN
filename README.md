@@ -1,6 +1,6 @@
 # DBSCAN
 
-Very fast sequential C++ implementation of the DBSCAN algorithm based on Nanoflann library for nearest neighbor search.
+Very fast sequential C++ implementation of the DBSCAN algorithm based on Nanoflann v1.4.3 library for nearest neighbor search.
 
 # Benchmarks for 3D DBSCAN:
 
