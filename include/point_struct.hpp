@@ -7,21 +7,21 @@
 
 namespace clustering
 {
-/// @brief Point Struct defined for 3 dimensions
-template <typename CoordinateType> struct PointCloud
+/// @brief Definition of the point struct
+template <typename CoordinateType> struct Point final
 {
-    /// @brief Definition of the point struct
-    struct Point
+    Point() = delete;
+    explicit Point(CoordinateType x, CoordinateType y, CoordinateType z) : point{x, y, z}
     {
-        Point() = delete;
-        explicit Point(CoordinateType x, CoordinateType y, CoordinateType z) : point{x, y, z}
-        {
-        }
-        CoordinateType point[3];
-    };
+    }
+    CoordinateType point[3];
+};
 
+/// @brief Point Struct defined for 3 dimensions
+template <typename CoordinateType> struct PointCloud final
+{
     // Container for points
-    std::vector<Point> points;
+    std::vector<Point<CoordinateType>> points;
 
     /// @brief Return the number of points in the cloud
     inline std::size_t kdtree_get_point_count() const noexcept
