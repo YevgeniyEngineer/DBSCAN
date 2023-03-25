@@ -1,6 +1,7 @@
 #ifndef POINT_STRUCT_HPP
 #define POINT_STRUCT_HPP
 
+#include <array>     // std::array
 #include <cstdint>   // std::size_t
 #include <stdexcept> // std::runtime_error
 #include <vector>    // std::vector
@@ -11,16 +12,10 @@ namespace clustering
 template <typename CoordinateType> struct Point final
 {
     Point() = delete;
-    Point(const Point &) = delete;
-    Point(Point &&) noexcept = default;
-    Point &operator=(const Point &) = delete;
-    Point &operator=(Point &&) noexcept = default;
-    ~Point() = default;
-
     explicit Point(CoordinateType x, CoordinateType y, CoordinateType z) : point{x, y, z}
     {
     }
-    CoordinateType point[3];
+    std::array<CoordinateType, 3> point;
 };
 
 /// @brief Point Struct defined for 3 dimensions
