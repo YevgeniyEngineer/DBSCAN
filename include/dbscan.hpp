@@ -32,7 +32,7 @@ template <typename CoordinateType> class DBSCAN final
     DBSCAN &operator=(DBSCAN &&) = delete;
     DBSCAN() = delete;
 
-    explicit DBSCAN(const double distance_threshold, const std::int32_t min_neighbour_points,
+    explicit DBSCAN(const CoordinateType distance_threshold, const std::int32_t min_neighbour_points,
                     const PointCloud<CoordinateType> &points)
         : distance_threshold_squared_(distance_threshold * distance_threshold),
           min_neighbour_points_(min_neighbour_points), points_(points),
@@ -152,7 +152,7 @@ template <typename CoordinateType> class DBSCAN final
     }
 
   private:
-    const double distance_threshold_squared_;
+    const CoordinateType distance_threshold_squared_;
     const std::int32_t min_neighbour_points_;
     const PointCloud<CoordinateType> &points_;
     const nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Adaptor<CoordinateType, PointCloud<CoordinateType>>,
