@@ -12,6 +12,9 @@ namespace clustering
 template <typename CoordinateType, std::size_t number_of_dimensions> struct Point final
 {
     Point() = delete;
+    Point(const Point<CoordinateType, number_of_dimensions> &other) : point(other.point)
+    {
+    }
     explicit Point(const typename std::array<CoordinateType, number_of_dimensions> &point) : point(point)
     {
         static_assert((number_of_dimensions == 2) || (number_of_dimensions == 3));

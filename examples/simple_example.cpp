@@ -17,7 +17,7 @@ constexpr static int NUMBER_OF_ITERATIONS = 100;
 
 namespace dbscan_parameters
 {
-constexpr static double NEAREST_NEIGHBOR_PROXIMITY_SQUARED = 1.0;
+constexpr static double NEAREST_NEIGHBOR_PROXIMITY = 1.0;
 constexpr static std::int32_t MINIMUM_POINTS_TO_FORM_CLUSTER = 10;
 } // namespace dbscan_parameters
 
@@ -83,7 +83,7 @@ int main(int argc, const char **const argv)
         auto start_time = std::chrono::high_resolution_clock::now();
 
         DBSCAN<CoordinateType, configuration_parameters::NUMBER_OF_DIMENSIONS> dbscan(
-            dbscan_parameters::NEAREST_NEIGHBOR_PROXIMITY_SQUARED, dbscan_parameters::MINIMUM_POINTS_TO_FORM_CLUSTER,
+            dbscan_parameters::NEAREST_NEIGHBOR_PROXIMITY, dbscan_parameters::MINIMUM_POINTS_TO_FORM_CLUSTER,
             point_cloud);
 
         average_time += runAndTimeExecution(dbscan);
