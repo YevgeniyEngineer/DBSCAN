@@ -9,20 +9,29 @@
 namespace clustering
 {
 /// @brief Definition of the point struct
-template <typename CoordinateType> struct Point final
+template <typename CoordinateType, std::size_t number_of_dimensions> struct Point final
 {
     Point() = delete;
+    explicit Point(const typename std::array<CoordinateType, number_of_dimensions> &point) : point(point)
+    {
+        static_assert((number_of_dimensions == 2) || (number_of_dimensions == 3));
+    }
     explicit Point(CoordinateType x, CoordinateType y, CoordinateType z) : point{x, y, z}
     {
+        static_assert(number_of_dimensions == 3);
     }
-    std::array<CoordinateType, 3> point;
+    explicit Point(CoordinateType x, CoordinateType y) : point{x, y}
+    {
+        static_assert(number_of_dimensions == 2);
+    }
+    std::array<CoordinateType, number_of_dimensions> point;
 };
 
 /// @brief Point Struct defined for 3 dimensions
-template <typename CoordinateType> struct PointCloud final
+template <typename CoordinateType, std::size_t number_of_dimensions> struct PointCloud final
 {
     // Container for points
-    std::vector<Point<CoordinateType>> points;
+    std::vector<Point<CoordinateType, number_of_dimensions>> points;
 
     /// @brief Return the number of points in the cloud
     inline std::size_t kdtree_get_point_count() const noexcept
@@ -33,21 +42,8 @@ template <typename CoordinateType> struct PointCloud final
     /// @brief Get a point along the specified dimension
     inline CoordinateType kdtree_get_pt(const std::size_t idx, const std::size_t dim) const
     {
-        switch (dim)
-        {
-        case (0UL): {
-            return points[idx].point[0];
-        }
-        case (1UL): {
-            return points[idx].point[1];
-        }
-        case (2UL): {
-            return points[idx].point[2];
-        }
-        default: {
-            throw std::runtime_error("Attempting to access the wrong dimension!");
-        }
-        }
+        // Assuming dim is always correct
+        return points[idx].point[dim];
     }
 
     /// @brief Optional bounding box computation

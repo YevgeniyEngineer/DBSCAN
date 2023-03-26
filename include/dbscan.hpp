@@ -17,10 +17,9 @@ constexpr std::int32_t UNDEFINED = -2;
 constexpr std::int32_t NOISE = -1;
 } // namespace labels
 
-template <typename CoordinateType> class DBSCAN final
+template <typename CoordinateType, std::size_t NUMBER_OF_DIMENSIONS> class DBSCAN final
 {
   public:
-    constexpr static std::int32_t NUMBER_OF_DIMENSIONS = 3;
     constexpr static std::int32_t MAX_LEAF_SIZE = 10;
     constexpr static std::int32_t IGNORE_CHECKS = 32;
     constexpr static float USE_APPROXIMATE_SEARCH = 0.0f;
@@ -33,7 +32,7 @@ template <typename CoordinateType> class DBSCAN final
     DBSCAN() = delete;
 
     explicit DBSCAN(const CoordinateType distance_threshold, const std::int32_t min_neighbour_points,
-                    const PointCloud<CoordinateType> &points)
+                    const PointCloud<CoordinateType, NUMBER_OF_DIMENSIONS> &points)
         : distance_threshold_squared_(distance_threshold * distance_threshold),
           min_neighbour_points_(min_neighbour_points), points_(points),
           kdtree_index_(NUMBER_OF_DIMENSIONS /*dim*/, points_, {MAX_LEAF_SIZE /*max leaf*/}),
@@ -150,9 +149,10 @@ template <typename CoordinateType> class DBSCAN final
   private:
     const CoordinateType distance_threshold_squared_;
     const std::int32_t min_neighbour_points_;
-    const PointCloud<CoordinateType> points_;
-    const nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Adaptor<CoordinateType, PointCloud<CoordinateType>>,
-                                              PointCloud<CoordinateType>, NUMBER_OF_DIMENSIONS /* dim */>
+    const PointCloud<CoordinateType, NUMBER_OF_DIMENSIONS> points_;
+    const nanoflann::KDTreeSingleIndexAdaptor<
+        nanoflann::L2_Adaptor<CoordinateType, PointCloud<CoordinateType, NUMBER_OF_DIMENSIONS>>,
+        PointCloud<CoordinateType, NUMBER_OF_DIMENSIONS>, NUMBER_OF_DIMENSIONS /* dim */>
         kdtree_index_;
     const nanoflann::SearchParams search_parameters_;
 

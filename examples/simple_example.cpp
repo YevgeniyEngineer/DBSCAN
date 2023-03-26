@@ -6,11 +6,11 @@
 #include <random>           // std::random_device
 
 using namespace clustering;
-using PointCloudType = PointCloud<double>;
 
 // Constants
 namespace configuration_parameters
 {
+constexpr static int NUMBER_OF_DIMENSIONS = 3;
 constexpr static int NUMBER_OF_POINTS = 100'000;
 constexpr static int NUMBER_OF_ITERATIONS = 100;
 } // namespace configuration_parameters
@@ -21,25 +21,30 @@ constexpr static double NEAREST_NEIGHBOR_PROXIMITY_SQUARED = 1.0;
 constexpr static std::int32_t MINIMUM_POINTS_TO_FORM_CLUSTER = 10;
 } // namespace dbscan_parameters
 
+using CoordinateType = double;
+using PointCloudType = PointCloud<CoordinateType, configuration_parameters::NUMBER_OF_DIMENSIONS>;
+
 /// @brief Generate and return random 3D points
 static inline void generateRandomData(PointCloudType &point_cloud)
 {
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_real_distribution<double> dist(-10.0, 10.0);
+    std::uniform_real_distribution<CoordinateType> dist(-10.0, 10.0);
 
     point_cloud.points.clear();
     point_cloud.points.reserve(configuration_parameters::NUMBER_OF_POINTS);
     for (auto i = 0; i < configuration_parameters::NUMBER_OF_POINTS; ++i)
     {
-        const double x = dist(gen);
-        const double y = dist(gen);
-        const double z = dist(gen);
-        point_cloud.points.emplace_back(x, y, z);
+        std::array<CoordinateType, configuration_parameters::NUMBER_OF_DIMENSIONS> point_cache;
+        for (auto j = 0; j < configuration_parameters::NUMBER_OF_DIMENSIONS; ++j)
+        {
+            point_cache[j] = dist(gen);
+        }
+        point_cloud.points.emplace_back(point_cache);
     }
 }
 
-static inline double runAndTimeExecution(DBSCAN<double> &dbscan)
+static inline double runAndTimeExecution(DBSCAN<CoordinateType, configuration_parameters::NUMBER_OF_DIMENSIONS> &dbscan)
 {
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -77,8 +82,9 @@ int main(int argc, const char **const argv)
     {
         auto start_time = std::chrono::high_resolution_clock::now();
 
-        DBSCAN<double> dbscan(dbscan_parameters::NEAREST_NEIGHBOR_PROXIMITY_SQUARED,
-                              dbscan_parameters::MINIMUM_POINTS_TO_FORM_CLUSTER, point_cloud);
+        DBSCAN<CoordinateType, configuration_parameters::NUMBER_OF_DIMENSIONS> dbscan(
+            dbscan_parameters::NEAREST_NEIGHBOR_PROXIMITY_SQUARED, dbscan_parameters::MINIMUM_POINTS_TO_FORM_CLUSTER,
+            point_cloud);
 
         average_time += runAndTimeExecution(dbscan);
     }
