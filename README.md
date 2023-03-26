@@ -23,7 +23,7 @@ int main()
 {
     // DBSCAN configuration parameters
     constexpr double search_radius = 1.0;
-    constexpr int points_to_form_cluster = 3;
+    constexpr int number_of_points_to_form_cluster = 3;
 
     try
     {
@@ -38,7 +38,7 @@ int main()
             double /*coordinate type*/, 
             3 /*number of dimensions*/> dbscan(
                 search_radius, 
-                points_to_form_cluster, 
+                number_of_points_to_form_cluster, 
                 number_of_dimensions
             );
 
