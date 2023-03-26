@@ -84,7 +84,7 @@ template <typename CoordinateType, std::size_t NUMBER_OF_DIMENSIONS> class DBSCA
             neighbors.clear();
 
             // Check density
-            if (kdtree_index_.radiusSearch(points_.points[index].point.data(), distance_threshold_squared_, neighbors,
+            if (kdtree_index_.radiusSearch(points_.points[index].data(), distance_threshold_squared_, neighbors,
                                            search_parameters_) < min_neighbour_points_)
             {
                 // Label query point as noise
@@ -124,7 +124,7 @@ template <typename CoordinateType, std::size_t NUMBER_OF_DIMENSIONS> class DBSCA
                 inner_neighbors.clear();
 
                 // Density check, if inner_query_point is a core point
-                if (kdtree_index_.radiusSearch(points_.points[neighbor_index].point.data(), distance_threshold_squared_,
+                if (kdtree_index_.radiusSearch(points_.points[neighbor_index].data(), distance_threshold_squared_,
                                                inner_neighbors, search_parameters_) >= min_neighbour_points_)
                 {
                     // Add new neighbors to the seed set
