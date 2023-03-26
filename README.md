@@ -22,36 +22,47 @@ CPU: 12th Gen Intel® Core™ i7-12700H × 20 | 16.0 GiB RAM
 int main() 
 {
     // DBSCAN configuration parameters
-    constexpr double search_radius = 1.0;
-    constexpr int number_of_points_to_form_cluster = 3;
+    constexpr double SEARCH_RADIUS = 1.0;
+    constexpr int NUMBER_OF_POINTS_TO_FORM_CLUSTER = 3;
+    constexpr int NUMBER_OF_DIMENSIONS = 3;
+
+    // All points will have this data type
+    using CoordinateType = double;
+
+    // PointCloud point structure
+    using Point = clustering::Point<
+        CoordinateType, NUMBER_OF_DIMENSIONS
+    >;
 
     try
     {
         clustering::PointCloud<
-            double /*coordinate type*/, 
-            3 /*number of dimensions*/> point_cloud;
+            CoordinateType, 
+            NUMBER_OF_DIMENSIONS
+        > point_cloud;
 
         // Load your point cloud into point_cloud here
         // ...
 
         clustering::DBSCAN<
-            double /*coordinate type*/, 
-            3 /*number of dimensions*/> dbscan(
-                search_radius, 
-                number_of_points_to_form_cluster, 
-                number_of_dimensions
-            );
+            CoordinateType, 
+            NUMBER_OF_DIMENSIONS
+        > dbscan(
+            SEARCH_RADIUS, 
+            NUMBER_OF_POINTS_TO_FORM_CLUSTER, 
+            point_cloud
+        );
 
         // Call this method to form clusters
         dbscan.formClusters();
 
         // Get result indices of each cluster
-        std::unordered_map<std::int32_t, std::vector<std::int32_t>> clusters = \
-            dbscan.getClusterIndices();
+        std::unordered_map<
+            std::int32_t, 
+            std::vector<std::int32_t>
+        > clusters = dbscan.getClusterIndices();
 
         // Select only valid clusters without UNDEFINED labels
-        using Point = clustering::Point<double, 3>;
-
         // Container to hold clustered points
         std::vector<std::vector<Point>> point_cloud_clusters;
         point_cloud_cluster.reserve(clusters.size());
