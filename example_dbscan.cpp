@@ -17,8 +17,8 @@ constexpr static int NUMBER_OF_ITERATIONS = 100;
 
 namespace dbscan_parameters
 {
-constexpr static double NEAREST_NEIGHBOR_PROXIMITY = 1.0;
-constexpr static std::int32_t MINIMUM_POINTS_TO_FORM_CLUSTER = 10;
+constexpr static double NEAREST_NEIGHBOR_PROXIMITY = 0.1;
+constexpr static std::int32_t MINIMUM_POINTS_TO_FORM_CLUSTER = 5;
 } // namespace dbscan_parameters
 
 using CoordinateType = double;
