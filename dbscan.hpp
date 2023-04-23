@@ -22,9 +22,6 @@ static constexpr std::int32_t NOISE = -1;
 template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCAN final
 {
   public:
-    constexpr static std::int32_t MAX_LEAF_SIZE = 10;
-    constexpr static std::int32_t IGNORE_CHECKS = 32;
-    constexpr static float USE_APPROXIMATE_SEARCH = 0.0f;
     constexpr static bool SORT_RESULTS = true;
 
     DBSCAN(const DBSCAN &) = delete;
@@ -84,7 +81,7 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
 
             // Check density
             kdtree_.findAllNearestNeighboursWithinRadiusSquared(points_.points[index], distance_threshold_squared_,
-                                                                neighbors);
+                                                                neighbors, SORT_RESULTS);
 
             if (neighbors.size() < min_neighbour_points_)
             {
@@ -130,8 +127,8 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
                 inner_neighbors.clear();
 
                 // Density check, if inner_query_point is a core point
-                kdtree_.findAllNearestNeighboursWithinRadiusSquared(points_.points[neighbor_index],
-                                                                    distance_threshold_squared_, inner_neighbors);
+                kdtree_.findAllNearestNeighboursWithinRadiusSquared(
+                    points_.points[neighbor_index], distance_threshold_squared_, inner_neighbors, SORT_RESULTS);
 
                 if (inner_neighbors.size() >= min_neighbour_points_)
                 {
