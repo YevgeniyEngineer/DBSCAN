@@ -1,9 +1,12 @@
-#include "dbscan.hpp"       // DBSCAN
-#include "point_struct.hpp" // PointCloud
-#include <chrono>           // std::chrono
-#include <csignal>          // std::signal
-#include <iostream>         // std::cout
-#include <random>           // std::random_device
+#include "dbscan.hpp"           // DBSCAN
+#include "dbscan_nanoflann.hpp" // DBSCAN_NANOFLANN
+#include "point_struct.hpp"     // PointCloud
+#include <chrono>               // std::chrono
+#include <csignal>              // std::signal
+#include <iostream>             // std::cout
+#include <memory>               // std::unique_ptr
+#include <random>               // std::random_device
+#include <variant>              // std::variant
 
 using namespace clustering;
 
@@ -23,6 +26,13 @@ constexpr static std::int32_t MINIMUM_POINTS_TO_FORM_CLUSTER = 5;
 
 using CoordinateType = double;
 using PointCloudType = PointCloud<CoordinateType, configuration_parameters::NUMBER_OF_DIMENSIONS>;
+
+using DBSCAN_Type = clustering::dbscan::DBSCAN<CoordinateType, configuration_parameters::NUMBER_OF_DIMENSIONS>;
+
+using DBSCAN_NANOFLANN_Type =
+    clustering::dbscan_nanoflann::DBSCAN_NANOFLANN<CoordinateType, configuration_parameters::NUMBER_OF_DIMENSIONS>;
+
+using VariantType = std::variant<DBSCAN_Type, DBSCAN_NANOFLANN_Type>;
 
 /// @brief Generate and return random 3D points
 static inline void generateRandomData(PointCloudType &point_cloud)
@@ -44,12 +54,24 @@ static inline void generateRandomData(PointCloudType &point_cloud)
     }
 }
 
-static inline double runAndTimeExecution(DBSCAN<CoordinateType, configuration_parameters::NUMBER_OF_DIMENSIONS> &dbscan)
+struct VariantVisitor
+{
+    void operator()(DBSCAN_Type &dbscan)
+    {
+        dbscan.formClusters();
+    }
+
+    void operator()(DBSCAN_NANOFLANN_Type &dbscan_nanoflann)
+    {
+        dbscan_nanoflann.formClusters();
+    }
+};
+
+static inline double runAndTimeExecution(VariantType &dbscan)
 {
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    // Call the method to form clusters
-    dbscan.formClusters();
+    std::visit(VariantVisitor{}, dbscan);
 
     auto stop_time = std::chrono::high_resolution_clock::now();
     auto elapsed = static_cast<double>((stop_time - start_time).count()) / 1e9;
@@ -77,20 +99,34 @@ int main(int argc, const char **const argv)
     generateRandomData(point_cloud);
 
     // Run several iterations of DBSCAN
-    double average_time = 0.0;
+    double average_time_dbscan = 0.0;
     for (std::int32_t i = 0; i < configuration_parameters::NUMBER_OF_ITERATIONS; ++i)
     {
         auto start_time = std::chrono::high_resolution_clock::now();
 
-        DBSCAN<CoordinateType, configuration_parameters::NUMBER_OF_DIMENSIONS> dbscan(
-            dbscan_parameters::NEAREST_NEIGHBOR_PROXIMITY, dbscan_parameters::MINIMUM_POINTS_TO_FORM_CLUSTER,
-            point_cloud);
+        VariantType dbscan_variant(std::in_place_index_t<0>{}, dbscan_parameters::NEAREST_NEIGHBOR_PROXIMITY,
+                                   dbscan_parameters::MINIMUM_POINTS_TO_FORM_CLUSTER, point_cloud);
 
-        average_time += runAndTimeExecution(dbscan);
+        average_time_dbscan += runAndTimeExecution(dbscan_variant);
     }
 
-    average_time /= configuration_parameters::NUMBER_OF_ITERATIONS;
-    std::cout << "Average time per loop: " << average_time << " seconds\n";
+    average_time_dbscan /= configuration_parameters::NUMBER_OF_ITERATIONS;
+    std::cout << "Average time per loop (DBSCAN): " << average_time_dbscan << " seconds\n";
+
+    // Run several iterations of DBSCAN_NANOFLANN
+    double average_time_dbscan_nanoflann = 0.0;
+    for (std::int32_t i = 0; i < configuration_parameters::NUMBER_OF_ITERATIONS; ++i)
+    {
+        auto start_time = std::chrono::high_resolution_clock::now();
+
+        VariantType dbscan_variant(std::in_place_index_t<1>{}, dbscan_parameters::NEAREST_NEIGHBOR_PROXIMITY,
+                                   dbscan_parameters::MINIMUM_POINTS_TO_FORM_CLUSTER, point_cloud);
+
+        average_time_dbscan_nanoflann += runAndTimeExecution(dbscan_variant);
+    }
+
+    average_time_dbscan_nanoflann /= configuration_parameters::NUMBER_OF_ITERATIONS;
+    std::cout << "Average time per loop (DBSCAN_NANOFLANN): " << average_time_dbscan_nanoflann << " seconds\n";
 
     return EXIT_SUCCESS;
 }

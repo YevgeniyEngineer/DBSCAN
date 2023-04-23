@@ -5,6 +5,7 @@ project(dbscan)
 add_library(${PROJECT_NAME}
     INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/dbscan.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/dbscan_nanoflann.hpp
 )
 
 set_target_properties(${PROJECT_NAME}
