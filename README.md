@@ -6,6 +6,10 @@ Very fast sequential C++ implementation of the DBSCAN algorithm based on Nanofla
 
 `sudo apt install libnanoflann-dev`
 
+# To Update Submodule
+
+`git submodule update --init --recursive`
+
 # Benchmarks for 3D DBSCAN:
 
 CPU: 12th Gen Intel® Core™ i7-12700H × 20 | 16.0 GiB RAM
