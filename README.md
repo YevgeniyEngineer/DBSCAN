@@ -2,6 +2,10 @@
 
 Very fast sequential C++ implementation of the DBSCAN algorithm based on Nanoflann v1.4.3 library for nearest neighbor search.
 
+# Requirements
+
+`sudo apt install libnanoflann-dev`
+
 # Benchmarks for 3D DBSCAN:
 
 CPU: 12th Gen Intel® Core™ i7-12700H × 20 | 16.0 GiB RAM
