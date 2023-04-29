@@ -21,11 +21,17 @@ static constexpr std::int32_t NOISE = -1;
 
 template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCANClustering final
 {
+    using PointCloudT = DBSCANPointCloud<CoordinateType, number_of_dimensions>;
+    using KdTreeT = nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<CoordinateType, PointCloudT>,
+                                                        PointCloudT, number_of_dimensions>;
+    using IndicesT = std::vector<std::uint32_t>;
+    using ClusterT = std::unordered_map<std::int32_t, IndicesT>;
+
   public:
     constexpr static std::int32_t MAX_LEAF_SIZE = 10;
     constexpr static std::int32_t IGNORE_CHECKS = 32;
     constexpr static float USE_APPROXIMATE_SEARCH = 0.0f;
-    constexpr static bool SORT_RESULTS = true;
+    constexpr static bool SORT_RESULTS = false;
 
     DBSCANClustering(const DBSCANClustering &) = delete;
     DBSCANClustering &operator=(const DBSCANClustering &) = delete;
@@ -33,13 +39,15 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
     DBSCANClustering &operator=(DBSCANClustering &&) = delete;
     DBSCANClustering() = delete;
 
-    explicit DBSCANClustering(const CoordinateType distance_threshold, const std::int32_t min_neighbour_points,
-                              const DBSCANPointCloud<CoordinateType, number_of_dimensions> &points)
-        : distance_threshold_squared_(distance_threshold * distance_threshold),
-          min_neighbour_points_(min_neighbour_points), points_(points),
-          kdtree_index_(number_of_dimensions /*dim*/, points_, {MAX_LEAF_SIZE /*max leaf*/}),
-          search_parameters_{IGNORE_CHECKS /*disable checks*/, USE_APPROXIMATE_SEARCH /*use approximated search?*/,
-                             SORT_RESULTS /*sort*/}
+    explicit DBSCANClustering(const PointCloudT &points, CoordinateType distance_threshold = 0,
+                              std::uint32_t min_cluster_size = 1,
+                              std::uint32_t max_cluster_size = std::numeric_limits<std::uint32_t>::max())
+
+        : distance_threshold_squared_(distance_threshold * distance_threshold), min_cluster_size_(min_cluster_size),
+          max_cluster_size_(max_cluster_size), points_(points),
+          kdtree_index_(number_of_dimensions, points_, {MAX_LEAF_SIZE}), search_parameters_{IGNORE_CHECKS,
+                                                                                            USE_APPROXIMATE_SEARCH,
+                                                                                            SORT_RESULTS}
     {
     }
 
@@ -56,7 +64,7 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
 
         // Must not have less that 2 points
         const auto number_of_points = points_.size();
-        if (number_of_points < 2)
+        if (number_of_points < 2 || min_cluster_size_ < 1)
         {
             return;
         }
@@ -65,18 +73,18 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
         std::vector<std::int32_t> labels(number_of_points, labels::UNDEFINED);
         auto labels_it = labels.begin();
 
-        // Reserve memory for neighbors
-        std::vector<std::pair<std::uint32_t, CoordinateType>> neighbors;
-        neighbors.reserve(1000);
+        // Reserve memory for neighbours
+        std::vector<std::pair<std::uint32_t, CoordinateType>> neighbours;
+        neighbours.reserve(number_of_points);
 
-        std::vector<std::pair<std::uint32_t, CoordinateType>> inner_neighbors;
-        inner_neighbors.reserve(1000);
+        std::vector<std::pair<std::uint32_t, CoordinateType>> inner_neighbours;
+        inner_neighbours.reserve(number_of_points);
 
         // Initial cluster counter
         std::int32_t label = 0;
 
         // Iterate over each point
-        for (std::int32_t index = 0; index < number_of_points; ++index)
+        for (std::uint32_t index = 0; index < number_of_points; ++index)
         {
             // Check if label is not undefined
             auto current_labels_it = labels_it + index;
@@ -85,14 +93,16 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
                 continue;
             }
 
-            // Find nearest neighbors within radius
-            neighbors.clear();
+            // Find nearest neighbours within radius
+            neighbours.clear();
 
             // Check density
-            if (kdtree_index_.radiusSearch(&points_[index][0], distance_threshold_squared_, neighbors,
-                                           search_parameters_) < min_neighbour_points_)
+            const auto number_of_neighbours = kdtree_index_.radiusSearch(
+                &points_[index][0], distance_threshold_squared_, neighbours, search_parameters_);
+
+            // Check if a noise point
+            if (number_of_neighbours < min_cluster_size_)
             {
-                // Label query point as noise
                 *current_labels_it = labels::NOISE;
                 continue;
             }
@@ -103,20 +113,19 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
             // Label initial point
             *current_labels_it = label;
 
-            // Exclude the first point from the radius search, and iterate over all neighbors
-            for (auto neighbor_it = neighbors.cbegin(); neighbor_it != neighbors.cend(); ++neighbor_it)
+            // Exclude the first point from the radius search, and iterate over all neighbours
+            for (auto neighbour_it = neighbours.cbegin(); neighbour_it != neighbours.cend(); ++neighbour_it)
             {
-                const auto &neighbor_index = (*neighbor_it).first;
-                auto current_neighbor_labels_it = labels_it + neighbor_index;
+                auto current_neighbor_labels_it = labels_it + neighbour_it->first;
 
+                // Check if a noise point
                 if (*current_neighbor_labels_it == labels::NOISE)
                 {
-                    // Change noise to border point
                     *current_neighbor_labels_it = label;
                     continue;
                 }
 
-                // Previously processed, border point
+                // Check if previously processed
                 if (*current_neighbor_labels_it != labels::UNDEFINED)
                 {
                     continue;
@@ -125,41 +134,60 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
                 // Label neighbor
                 *current_neighbor_labels_it = label;
 
-                // Find neighbors
-                inner_neighbors.clear();
+                // Find inner neighbours
+                inner_neighbours.clear();
+
+                const auto number_of_inner_neighbours =
+                    kdtree_index_.radiusSearch(&points_[neighbour_it->first][0], distance_threshold_squared_,
+                                               inner_neighbours, search_parameters_);
 
                 // Density check, if inner_query_point is a core point
-                if (kdtree_index_.radiusSearch(&points_[neighbor_index][0], distance_threshold_squared_,
-                                               inner_neighbors, search_parameters_) >= min_neighbour_points_)
+                if (number_of_inner_neighbours >= min_cluster_size_)
                 {
-                    // Add new neighbors to the seed set
-                    for (auto inner_neighbor_it = inner_neighbors.cbegin() + 1;
-                         inner_neighbor_it != inner_neighbors.cend(); ++inner_neighbor_it)
+                    // Add new neighbours to the seed set
+                    for (auto inner_neighbour_it = inner_neighbours.cbegin(); inner_neighbours.cend();
+                         ++inner_neighbours)
                     {
-                        *(labels_it + (*inner_neighbor_it).first) = label;
+                        *(labels_it + inner_neighbour_it->first) = label;
                     }
                 }
             }
         }
 
         // Iterate over indices and copy to cluster indices
-        for (std::int32_t i = 0; i < labels.size(); ++i)
+        if (!labels.empty())
         {
-            cluster_indices_[labels[i]].push_back(i);
+            ClusterT temp_cluster_indices;
+            temp_cluster_indices.reserve(labels.back() + 3);
+            for (std::uint32_t i = 0; i < labels.size(); ++i)
+            {
+                temp_cluster_indices[labels[i]].push_back(i);
+            }
+
+            cluster_indices_.reserve(temp_cluster_indices.size());
+            for (auto &[label, indices] : temp_cluster_indices)
+            {
+                if (indices.size() > max_cluster_size_)
+                {
+                    continue;
+                }
+
+                cluster_indices_[label] = std::move(indices);
+            }
         }
     }
 
   private:
-    const CoordinateType distance_threshold_squared_;
-    const std::int32_t min_neighbour_points_;
-    const DBSCANPointCloud<CoordinateType, number_of_dimensions> points_;
-    const nanoflann::KDTreeSingleIndexAdaptor<
-        nanoflann::L2_Simple_Adaptor<CoordinateType, DBSCANPointCloud<CoordinateType, number_of_dimensions>>,
-        DBSCANPointCloud<CoordinateType, number_of_dimensions>, number_of_dimensions /* dim */>
-        kdtree_index_;
-    const nanoflann::SearchParams search_parameters_;
+    // Inputs
+    CoordinateType distance_threshold_squared_;
+    std::uint32_t min_cluster_size_;
+    std::uint32_t max_cluster_size_;
+    PointCloudT points_;
+    KdTreeT kdtree_index_;
+    nanoflann::SearchParams search_parameters_;
 
-    std::unordered_map<std::int32_t, std::vector<std::int32_t>> cluster_indices_;
+    // Output
+    ClusterT cluster_indices_;
 };
 } // namespace clustering
 

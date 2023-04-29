@@ -66,7 +66,7 @@ int main(int argc, const char **const argv)
     {
         auto start_time = std::chrono::high_resolution_clock::now();
 
-        DBSCAN_Type dbscan(NEAREST_NEIGHBOR_PROXIMITY, MINIMUM_POINTS_TO_FORM_CLUSTER, point_cloud);
+        DBSCAN_Type dbscan(point_cloud, NEAREST_NEIGHBOR_PROXIMITY, MINIMUM_POINTS_TO_FORM_CLUSTER);
 
         auto stop_time = std::chrono::high_resolution_clock::now();
 
