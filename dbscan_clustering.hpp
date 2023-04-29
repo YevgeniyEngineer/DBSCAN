@@ -145,8 +145,8 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
                 if (number_of_inner_neighbours >= min_cluster_size_)
                 {
                     // Add new neighbours to the seed set
-                    for (auto inner_neighbour_it = inner_neighbours.cbegin(); inner_neighbours.cend();
-                         ++inner_neighbour_it)
+                    for (auto inner_neighbour_it = inner_neighbours.cbegin();
+                         inner_neighbour_it != inner_neighbours.cend(); ++inner_neighbour_it)
                     {
                         *(labels_it + inner_neighbour_it->first) = label;
                     }
