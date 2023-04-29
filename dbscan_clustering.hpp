@@ -146,7 +146,7 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
                 {
                     // Add new neighbours to the seed set
                     for (auto inner_neighbour_it = inner_neighbours.cbegin(); inner_neighbours.cend();
-                         ++inner_neighbours)
+                         ++inner_neighbour_it)
                     {
                         *(labels_it + inner_neighbour_it->first) = label;
                     }
