@@ -1,17 +1,17 @@
-#ifndef DBSCAN_NANOFLANN_HPP
-#define DBSCAN_NANOFLANN_HPP
+#ifndef DBSCAN_CLUSTERING_HPP
+#define DBSCAN_CLUSTERING_HPP
 
-#include "nanoflann/nanoflann.hpp" // nanoflann::KDTreeEigenMatrixAdaptor
-#include "point_struct.hpp"        // PointCloud
-#include <cstdint>                 // std::int32_t, std::size_t
-#include <iostream>                // std::cout
-#include <unordered_map>           // std::unordered_map
-#include <utility>                 // std::pair
-#include <vector>                  // std::vector
+#include <nanoflann.hpp> // nanoflann::KDTreeEigenMatrixAdaptor
 
-#define DEBUG_DBSCAN_NANOFLANN 0
+#include "dbscan_point_cloud.hpp" // PointCloud
 
-namespace clustering::dbscan_nanoflann
+#include <cstdint>       // std::int32_t, std::size_t
+#include <iostream>      // std::cout
+#include <unordered_map> // std::unordered_map
+#include <utility>       // std::pair
+#include <vector>        // std::vector
+
+namespace clustering
 {
 namespace labels
 {
@@ -19,7 +19,7 @@ static constexpr std::int32_t UNDEFINED = -2;
 static constexpr std::int32_t NOISE = -1;
 } // namespace labels
 
-template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCAN_NANOFLANN final
+template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCANClustering final
 {
   public:
     constexpr static std::int32_t MAX_LEAF_SIZE = 10;
@@ -27,14 +27,14 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
     constexpr static float USE_APPROXIMATE_SEARCH = 0.0f;
     constexpr static bool SORT_RESULTS = true;
 
-    DBSCAN_NANOFLANN(const DBSCAN_NANOFLANN &) = delete;
-    DBSCAN_NANOFLANN &operator=(const DBSCAN_NANOFLANN &) = delete;
-    DBSCAN_NANOFLANN(DBSCAN_NANOFLANN &&) = delete;
-    DBSCAN_NANOFLANN &operator=(DBSCAN_NANOFLANN &&) = delete;
-    DBSCAN_NANOFLANN() = delete;
+    DBSCANClustering(const DBSCANClustering &) = delete;
+    DBSCANClustering &operator=(const DBSCANClustering &) = delete;
+    DBSCANClustering(DBSCANClustering &&) = delete;
+    DBSCANClustering &operator=(DBSCANClustering &&) = delete;
+    DBSCANClustering() = delete;
 
-    explicit DBSCAN_NANOFLANN(const CoordinateType distance_threshold, const std::int32_t min_neighbour_points,
-                              const PointCloud<CoordinateType, number_of_dimensions> &points)
+    explicit DBSCANClustering(const CoordinateType distance_threshold, const std::int32_t min_neighbour_points,
+                              const DBSCANPointCloud<CoordinateType, number_of_dimensions> &points)
         : distance_threshold_squared_(distance_threshold * distance_threshold),
           min_neighbour_points_(min_neighbour_points), points_(points),
           kdtree_index_(number_of_dimensions /*dim*/, points_, {MAX_LEAF_SIZE /*max leaf*/}),
@@ -43,7 +43,7 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
     {
     }
 
-    ~DBSCAN_NANOFLANN() = default;
+    ~DBSCANClustering() = default;
 
     const auto getClusterIndices() const
     {
@@ -52,14 +52,17 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
 
     void formClusters()
     {
+        cluster_indices_.clear();
+
         // Must not have less that 2 points
-        if (points_.points.size() < 2)
+        const auto number_of_points = points_.size();
+        if (number_of_points < 2)
         {
             return;
         }
 
         // Set all initial labels to UNDEFINED
-        std::vector<std::int32_t> labels(points_.points.size(), labels::UNDEFINED);
+        std::vector<std::int32_t> labels(number_of_points, labels::UNDEFINED);
         auto labels_it = labels.begin();
 
         // Reserve memory for neighbors
@@ -73,7 +76,7 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
         std::int32_t label = 0;
 
         // Iterate over each point
-        for (std::int32_t index = 0; index < points_.points.size(); ++index)
+        for (std::int32_t index = 0; index < number_of_points; ++index)
         {
             // Check if label is not undefined
             auto current_labels_it = labels_it + index;
@@ -86,18 +89,13 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
             neighbors.clear();
 
             // Check density
-            if (kdtree_index_.radiusSearch(points_.points[index].data(), distance_threshold_squared_, neighbors,
+            if (kdtree_index_.radiusSearch(&points_[index][0], distance_threshold_squared_, neighbors,
                                            search_parameters_) < min_neighbour_points_)
             {
                 // Label query point as noise
                 *current_labels_it = labels::NOISE;
                 continue;
             }
-
-#if DEBUG_DBSCAN_NANOFLANN
-            std::cout << "Found " << neighbors.size() << " outer neighbours for cluster number " << label + 1
-                      << std::endl;
-#endif
 
             // Set the next cluster label
             ++label;
@@ -131,7 +129,7 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
                 inner_neighbors.clear();
 
                 // Density check, if inner_query_point is a core point
-                if (kdtree_index_.radiusSearch(points_.points[neighbor_index].data(), distance_threshold_squared_,
+                if (kdtree_index_.radiusSearch(&points_[neighbor_index][0], distance_threshold_squared_,
                                                inner_neighbors, search_parameters_) >= min_neighbour_points_)
                 {
                     // Add new neighbors to the seed set
@@ -149,24 +147,20 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
         {
             cluster_indices_[labels[i]].push_back(i);
         }
-
-#if DEBUG_DBSCAN_NANOFLANN
-        std::cout << "Number of clusters: " << cluster_indices_.size() << std::endl;
-#endif
     }
 
   private:
     const CoordinateType distance_threshold_squared_;
     const std::int32_t min_neighbour_points_;
-    const PointCloud<CoordinateType, number_of_dimensions> points_;
+    const DBSCANPointCloud<CoordinateType, number_of_dimensions> points_;
     const nanoflann::KDTreeSingleIndexAdaptor<
-        nanoflann::L2_Adaptor<CoordinateType, PointCloud<CoordinateType, number_of_dimensions>>,
-        PointCloud<CoordinateType, number_of_dimensions>, number_of_dimensions /* dim */>
+        nanoflann::L2_Simple_Adaptor<CoordinateType, DBSCANPointCloud<CoordinateType, number_of_dimensions>>,
+        DBSCANPointCloud<CoordinateType, number_of_dimensions>, number_of_dimensions /* dim */>
         kdtree_index_;
     const nanoflann::SearchParams search_parameters_;
 
     std::unordered_map<std::int32_t, std::vector<std::int32_t>> cluster_indices_;
 };
-} // namespace clustering::dbscan_nanoflann
+} // namespace clustering
 
-#endif // DBSCAN_NANOFLANN_HPP
+#endif // DBSCAN_CLUSTERING_HPP

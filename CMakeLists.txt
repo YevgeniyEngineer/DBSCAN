@@ -2,11 +2,12 @@ cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
 
 project(dbscan)
 
+find_package(nanoflann REQUIRED)
+
 add_library(${PROJECT_NAME}
     INTERFACE
-    ${CMAKE_CURRENT_SOURCE_DIR}/point_struct.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/dbscan.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/dbscan_nanoflann.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/dbscan_point_cloud.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/dbscan_clustering.hpp
 )
 
 set_target_properties(${PROJECT_NAME}
@@ -17,8 +18,6 @@ set_target_properties(${PROJECT_NAME}
     CXX_EXTENSIONS OFF
 )
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/KDTree)
-
 target_include_directories(${PROJECT_NAME}
     INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
@@ -27,7 +26,7 @@ target_include_directories(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
     INTERFACE
-    kdtree::kdtree
+    nanoflann::nanoflann
 )
 
 add_library(dbscan::dbscan
