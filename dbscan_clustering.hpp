@@ -5,8 +5,9 @@
 
 #include "dbscan_point_cloud.hpp" // PointCloud
 
-#include <cstdint>       // std::int32_t, std::size_t
-#include <iostream>      // std::cout
+#include <cstdint>  // std::int32_t, std::size_t
+#include <iostream> // std::cout
+#include <stdexcept>
 #include <unordered_map> // std::unordered_map
 #include <utility>       // std::pair
 #include <vector>        // std::vector
@@ -49,6 +50,18 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
                                                                                             USE_APPROXIMATE_SEARCH,
                                                                                             SORT_RESULTS}
     {
+        if (min_cluster_size_ < 1)
+        {
+            throw std::runtime_error("Minimum cluster size should not be less than 1");
+        }
+        if (max_cluster_size_ < min_cluster_size_)
+        {
+            throw std::runtime_error("Maximum cluster size should not be less than minimum cluster size");
+        }
+        if (points_.empty())
+        {
+            return;
+        }
     }
 
     ~DBSCANClustering() = default;
@@ -61,6 +74,16 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
     void formClusters()
     {
         cluster_indices_.clear();
+
+        if (points_.empty())
+        {
+            return;
+        }
+        else if (points_.size() == 1)
+        {
+            cluster_indices_[0] = {0};
+            return;
+        }
 
         // Must not have less that 2 points
         const auto number_of_points = points_.size();
