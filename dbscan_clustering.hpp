@@ -3,6 +3,7 @@
 
 #include <nanoflann.hpp> // nanoflann::KDTreeEigenMatrixAdaptor
 
+#include "circular_queue.hpp"     // CircularQueue
 #include "dbscan_point_cloud.hpp" // PointCloud
 
 #include <cstdint>  // std::int32_t, std::size_t
@@ -46,9 +47,8 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
 
         : distance_threshold_squared_(distance_threshold * distance_threshold), min_cluster_size_(min_cluster_size),
           max_cluster_size_(max_cluster_size), points_(points),
-          kdtree_index_(number_of_dimensions, points_, {MAX_LEAF_SIZE}), search_parameters_{IGNORE_CHECKS,
-                                                                                            USE_APPROXIMATE_SEARCH,
-                                                                                            SORT_RESULTS}
+          kdtree_index_(number_of_dimensions, points_, {MAX_LEAF_SIZE}),
+          search_parameters_{IGNORE_CHECKS, USE_APPROXIMATE_SEARCH, SORT_RESULTS}, index_queue_{points_.size()}
     {
         if (min_cluster_size_ < 1)
         {
@@ -62,6 +62,12 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
         {
             return;
         }
+
+        // Reserve some memory for processing
+        search_results_.reserve(points_.size());
+        is_visited_.reserve(points_.size());
+        cluster_labels_.reserve(points_.size());
+        cluster_indices_.reserve(points_.size());
     }
 
     ~DBSCANClustering() = default;
@@ -77,125 +83,110 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
 
         if (points_.empty())
         {
-            return;
-        }
-        else if (points_.size() == 1)
-        {
-            cluster_indices_[0] = {0};
-            return;
+            return; // Nothing to cluster
         }
 
-        // Must not have less that 2 points
-        const auto number_of_points = points_.size();
-        if (number_of_points < 2 || min_cluster_size_ < 1)
+        if (points_.size() < min_cluster_size_)
         {
-            return;
+            return; // Cannot form valid clusters
         }
 
-        // Set all initial labels to UNDEFINED
-        std::vector<std::int32_t> labels(number_of_points, labels::UNDEFINED);
-        auto labels_it = labels.begin();
+        // Cluster label
+        std::int32_t cluster_label = -1;
 
-        // Reserve memory for neighbours
-        std::vector<std::pair<std::uint32_t, CoordinateType>> neighbours;
-        neighbours.reserve(number_of_points);
+        // Set visited array
+        is_visited_.assign(points_.size(), false);
 
-        std::vector<std::pair<std::uint32_t, CoordinateType>> inner_neighbours;
-        inner_neighbours.reserve(number_of_points);
+        // Array to keep track of labels
+        cluster_labels_.assign(points_.size(), labels::UNDEFINED);
 
-        // Initial cluster counter
-        std::int32_t label = 0;
-
-        // Iterate over each point
-        for (std::uint32_t index = 0; index < number_of_points; ++index)
+        // Start clustering
+        for (std::uint32_t i = 0; i < points_.size(); ++i)
         {
-            // Check if label is not undefined
-            auto current_labels_it = labels_it + index;
-            if (*current_labels_it != labels::UNDEFINED)
+            if (cluster_labels_[i] != labels::UNDEFINED)
             {
+                continue; // Point has already been added to a cluster
+            }
+
+            // Find core neighbours
+            search_results_.clear();
+            const auto number_of_core_neighbours = kdtree_index_.radiusSearch(
+                &points_[i][0], distance_threshold_squared_, search_results_, search_parameters_);
+
+            // Check if noise (below threshold number of cluster points)
+            if (number_of_core_neighbours < min_cluster_size_)
+            {
+                cluster_labels_[i] = labels::NOISE;
+                is_visited_[i] = true;
                 continue;
             }
 
-            // Find nearest neighbours within radius
-            neighbours.clear();
+            // Move to next cluster
+            ++cluster_label;
 
-            // Check density
-            const auto number_of_neighbours = kdtree_index_.radiusSearch(
-                &points_[index][0], distance_threshold_squared_, neighbours, search_parameters_);
+            // Assign current point to a new cluster
+            cluster_labels_[i] = cluster_label;
+            is_visited_[i] = true;
 
-            // Check if a noise point
-            if (number_of_neighbours < min_cluster_size_)
+            // Transfer to index queue
+            for (const auto &[index, distance] : search_results_)
             {
-                *current_labels_it = labels::NOISE;
-                continue;
+                if (index != i)
+                {
+                    index_queue_.push(index);
+                }
             }
 
-            // Set the next cluster label
-            ++label;
-
-            // Label initial point
-            *current_labels_it = label;
-
-            // Exclude the first point from the radius search, and iterate over all neighbours
-            for (auto neighbour_it = neighbours.cbegin(); neighbour_it != neighbours.cend(); ++neighbour_it)
+            // Find neighbours of seed points
+            while (!index_queue_.empty())
             {
-                auto current_neighbor_labels_it = labels_it + neighbour_it->first;
+                // Remove last element
+                const std::uint32_t seed_index = index_queue_.front();
+                index_queue_.pop();
 
-                // Check if a noise point
-                if (*current_neighbor_labels_it == labels::NOISE)
+                // Check if border point - assign noise point to this cluster
+                if (labels::NOISE == cluster_labels_[seed_index])
                 {
-                    *current_neighbor_labels_it = label;
+                    cluster_labels_[seed_index] = cluster_label;
+                    is_visited_[seed_index] = true;
                     continue;
                 }
 
-                // Check if previously processed
-                if (*current_neighbor_labels_it != labels::UNDEFINED)
+                // If point has not been classified before
+                if (labels::UNDEFINED == cluster_labels_[seed_index])
                 {
-                    continue;
-                }
+                    cluster_labels_[seed_index] = cluster_label;
+                    is_visited_[seed_index] = true;
 
-                // Label neighbor
-                *current_neighbor_labels_it = label;
+                    // Find seed neighbours
+                    search_results_.clear();
+                    const auto number_of_seed_neighbours = kdtree_index_.radiusSearch(
+                        &points_[seed_index][0], distance_threshold_squared_, search_results_, search_parameters_);
 
-                // Find inner neighbours
-                inner_neighbours.clear();
-
-                const auto number_of_inner_neighbours =
-                    kdtree_index_.radiusSearch(&points_[neighbour_it->first][0], distance_threshold_squared_,
-                                               inner_neighbours, search_parameters_);
-
-                // Density check, if inner_query_point is a core point
-                if (number_of_inner_neighbours >= min_cluster_size_)
-                {
-                    // Add new neighbours to the seed set
-                    for (auto inner_neighbour_it = inner_neighbours.cbegin();
-                         inner_neighbour_it != inner_neighbours.cend(); ++inner_neighbour_it)
+                    // If the seed point is a core point
+                    if (number_of_seed_neighbours >= min_cluster_size_)
                     {
-                        *(labels_it + inner_neighbour_it->first) = label;
+                        // For each seed of the seed
+                        for (const auto &[index, distance] : search_results_)
+                        {
+                            // If this seed has not been visited
+                            if (!is_visited_[index])
+                            {
+                                index_queue_.push(index);
+                                is_visited_[index] = true;
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // Iterate over indices and copy to cluster indices
-        if (!labels.empty())
+        // Transfer labels
+        for (std::uint32_t i = 0; i < points_.size(); ++i)
         {
-            ClusterT temp_cluster_indices;
-            temp_cluster_indices.reserve(labels.back() + 3);
-            for (std::uint32_t i = 0; i < labels.size(); ++i)
+            if (cluster_labels_[i] >= 0)
             {
-                temp_cluster_indices[labels[i]].push_back(i);
-            }
-
-            cluster_indices_.reserve(temp_cluster_indices.size());
-            for (auto &[label, indices] : temp_cluster_indices)
-            {
-                if (indices.size() > max_cluster_size_)
-                {
-                    continue;
-                }
-
-                cluster_indices_[label] = std::move(indices);
+                cluster_indices_[cluster_labels_[i]].push_back(i);
             }
         }
     }
@@ -208,6 +199,12 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
     PointCloudT points_;
     KdTreeT kdtree_index_;
     nanoflann::SearchParams search_parameters_;
+
+    // For processing
+    std::vector<std::pair<std::uint32_t, float>> search_results_;
+    std::vector<std::int32_t> cluster_labels_;
+    std::vector<bool> is_visited_;
+    CircularQueue<std::uint32_t> index_queue_;
 
     // Output
     ClusterT cluster_indices_;
