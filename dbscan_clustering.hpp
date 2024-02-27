@@ -65,7 +65,6 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
 
         // Reserve some memory for processing
         search_results_.reserve(points_.size());
-        is_visited_.reserve(points_.size());
         cluster_labels_.reserve(points_.size());
         cluster_indices_.reserve(points_.size());
     }
@@ -91,14 +90,14 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
             return; // Cannot form valid clusters
         }
 
-        // Cluster label
-        std::int32_t cluster_label = -1;
-
         // Set visited array
-        is_visited_.assign(points_.size(), false);
+        is_seed_set_.assign(points_.size(), false);
 
         // Array to keep track of labels
         cluster_labels_.assign(points_.size(), labels::UNDEFINED);
+
+        // Cluster label
+        std::int32_t cluster_label = 0;
 
         // Start clustering
         for (std::uint32_t i = 0; i < points_.size(); ++i)
@@ -117,28 +116,27 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
             if (number_of_core_neighbours < min_cluster_size_)
             {
                 cluster_labels_[i] = labels::NOISE;
-                is_visited_[i] = true;
                 continue;
             }
 
-            // Move to next cluster
-            ++cluster_label;
-
             // Assign current point to a new cluster
             cluster_labels_[i] = cluster_label;
-            is_visited_[i] = true;
 
             // Transfer to index queue
+            std::fill(is_seed_set_.begin(), is_seed_set_.end(), false);
             for (const auto &[index, distance] : search_results_)
             {
-                if (index != i)
+                if ((index != i) && (cluster_labels_[index] < 0))
                 {
                     index_queue_.push(index);
                 }
+
+                // i is also included into seed set to avoid duplicate nearest neighbour search
+                is_seed_set_[index] = true;
             }
 
             // Find neighbours of seed points
-            while (!index_queue_.empty())
+            while (index_queue_.size() > 0)
             {
                 // Remove last element
                 const std::uint32_t seed_index = index_queue_.front();
@@ -148,7 +146,7 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
                 if (labels::NOISE == cluster_labels_[seed_index])
                 {
                     cluster_labels_[seed_index] = cluster_label;
-                    is_visited_[seed_index] = true;
+
                     continue;
                 }
 
@@ -156,7 +154,6 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
                 if (labels::UNDEFINED == cluster_labels_[seed_index])
                 {
                     cluster_labels_[seed_index] = cluster_label;
-                    is_visited_[seed_index] = true;
 
                     // Find seed neighbours
                     search_results_.clear();
@@ -169,16 +166,24 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
                         // For each seed of the seed
                         for (const auto &[index, distance] : search_results_)
                         {
-                            // If this seed has not been visited
-                            if (!is_visited_[index])
+                            if (is_seed_set_[index])
+                            {
+                                continue;
+                            }
+
+                            is_seed_set_[index] = true;
+
+                            if (cluster_labels_[index] < 0)
                             {
                                 index_queue_.push(index);
-                                is_visited_[index] = true;
                             }
                         }
                     }
                 }
             }
+
+            // Move to next cluster
+            ++cluster_label;
         }
 
         // Transfer labels
@@ -203,7 +208,7 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
     // For processing
     std::vector<std::pair<std::uint32_t, float>> search_results_;
     std::vector<std::int32_t> cluster_labels_;
-    std::vector<bool> is_visited_;
+    std::vector<bool> is_seed_set_;
     CircularQueue<std::uint32_t> index_queue_;
 
     // Output

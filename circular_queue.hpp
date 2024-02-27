@@ -46,7 +46,7 @@ template <typename T> class CircularQueue
 
     template <typename... Args> inline void emplace(Args &&...args) noexcept
     {
-        new (&buffer_[tail_]) T(std::forward<Args>(args)...);
+        ::new (&buffer_[tail_]) T{std::forward<Args>(args)...};
 
         ++tail_;
         if (tail_ >= buffer_.size())
