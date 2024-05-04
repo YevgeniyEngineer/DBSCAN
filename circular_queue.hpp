@@ -70,6 +70,11 @@ template <typename T> class CircularQueue
         --count_;
     }
 
+    inline void reserve(const std::size_t new_capacity) noexcept
+    {
+        buffer_.resize(new_capacity);
+    }
+
     inline T &front() noexcept
     {
         return *reinterpret_cast<T *>(&buffer_[head_]);

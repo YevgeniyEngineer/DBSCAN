@@ -8,6 +8,8 @@
 
 #include <cstdint>  // std::int32_t, std::size_t
 #include <iostream> // std::cout
+#include <memory>   // std::unique_ptr
+#include <new>      // ::new
 #include <stdexcept>
 #include <unordered_map> // std::unordered_map
 #include <utility>       // std::pair
@@ -47,7 +49,7 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
 
         : distance_threshold_squared_(distance_threshold * distance_threshold), min_cluster_size_(min_cluster_size),
           max_cluster_size_(max_cluster_size), points_(points),
-          kdtree_index_(number_of_dimensions, points_, {MAX_LEAF_SIZE}),
+          kdtree_index_(new KdTreeT(number_of_dimensions, points_, {MAX_LEAF_SIZE})),
           search_parameters_{IGNORE_CHECKS, USE_APPROXIMATE_SEARCH, SORT_RESULTS}, index_queue_{points_.size()}
     {
         if (min_cluster_size_ < 1)
@@ -69,7 +71,41 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
         cluster_indices_.reserve(points_.size());
     }
 
+    DBSCANClustering(CoordinateType distance_threshold = 0, std::uint32_t min_cluster_size = 1,
+                     std::uint32_t max_cluster_size = std::numeric_limits<std::uint32_t>::max())
+        : distance_threshold_squared_(distance_threshold * distance_threshold), min_cluster_size_(min_cluster_size),
+          max_cluster_size_(max_cluster_size), search_parameters_{IGNORE_CHECKS, USE_APPROXIMATE_SEARCH, SORT_RESULTS},
+          index_queue_{points_.size()}
+    {
+        if (min_cluster_size_ < 1)
+        {
+            throw std::runtime_error("Minimum cluster size should not be less than 1");
+        }
+        if (max_cluster_size_ < min_cluster_size_)
+        {
+            throw std::runtime_error("Maximum cluster size should not be less than minimum cluster size");
+        }
+    }
+
     ~DBSCANClustering() = default;
+
+    void rebuildKDTree(const PointCloudT &points)
+    {
+        points_ = points;
+
+        kdtree_index_.reset(new KdTreeT(number_of_dimensions, points_, {MAX_LEAF_SIZE}));
+
+        kdtree_index_->buildIndex();
+    }
+
+    void reserve(std::size_t number_of_points)
+    {
+        index_queue_.reserve(number_of_points);
+        search_results_.reserve(number_of_points);
+        is_seed_set_.reserve(number_of_points);
+        cluster_labels_.reserve(number_of_points);
+        cluster_indices_.reserve(number_of_points);
+    }
 
     const auto getClusterIndices() const
     {
@@ -109,7 +145,7 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
 
             // Find core neighbours
             search_results_.clear();
-            const auto number_of_core_neighbours = kdtree_index_.radiusSearch(
+            const auto number_of_core_neighbours = kdtree_index_->radiusSearch(
                 &points_[i][0], distance_threshold_squared_, search_results_, search_parameters_);
 
             // Check if noise (below threshold number of cluster points)
@@ -157,7 +193,7 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
 
                     // Find seed neighbours
                     search_results_.clear();
-                    const auto number_of_seed_neighbours = kdtree_index_.radiusSearch(
+                    const auto number_of_seed_neighbours = kdtree_index_->radiusSearch(
                         &points_[seed_index][0], distance_threshold_squared_, search_results_, search_parameters_);
 
                     // If the seed point is a core point
@@ -202,7 +238,7 @@ template <typename CoordinateType, std::size_t number_of_dimensions> class DBSCA
     std::uint32_t min_cluster_size_;
     std::uint32_t max_cluster_size_;
     PointCloudT points_;
-    KdTreeT kdtree_index_;
+    std::unique_ptr<KdTreeT> kdtree_index_;
     nanoflann::SearchParams search_parameters_;
 
     // For processing
